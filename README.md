@@ -1,8 +1,8 @@
 # Electron Private S3 Auto Updater
 
-## Summary
-
 This package enables automatically updating an electron app from a private S3 bucket. It is intended to be close to the built-in electron auto updater in implementation.
+
+Only windows and macois are supported
 
 ## Usage
 

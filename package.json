@@ -2,14 +2,24 @@
     "name": "electron-private-s3-updater",
     "version": "0.0.1",
     "description": "",
-    "main": "index.js",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "/dist"
+    ],
     "type": "module",
     "scripts": {
         "build": "tsc"
     },
-    "keywords": [],
-    "author": "",
-    "license": "ISC",
+    "keywords": [
+        "electron",
+        "updater",
+        "auto-updater",
+        "s3"
+    ],
+    "repository": "https://github.com/IllFonic/electron-private-s3-updater",
+    "author": "IllFonic Inc.",
+    "license": "MIT",
     "packageManager": "pnpm@10.29.3",
     "devDependencies": {
         "@eslint/js": "^10.0.1",
