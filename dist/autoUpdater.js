@@ -20,7 +20,7 @@ class ElectronPrivateS3AutoUpdater extends EventEmitter {
     }
     initTempPath() {
         if (fs.existsSync(this.tempPath)) {
-            fs.rmdirSync(this.tempPath);
+            fs.rmSync(this.tempPath, { recursive: true, force: true });
         }
         fs.mkdirSync(this.tempPath);
     }
@@ -50,10 +50,10 @@ class ElectronPrivateS3AutoUpdater extends EventEmitter {
         }
     }
     async downloadUpdate(key) {
-        const fullPath = path.join(key, process.platform, process.arch);
+        const fullPath = path.join(key, process.platform, process.arch).replaceAll(path.sep, "/");
         const objectList = [];
         try {
-            const paginator = paginateListObjectsV2({ client: this.s3Client, pageSize: 100 }, { Bucket: this.bucket, Prefix: this.prefix });
+            const paginator = paginateListObjectsV2({ client: this.s3Client, pageSize: 100 }, { Bucket: this.bucket, Prefix: fullPath });
             for await (const page of paginator) {
                 if (page.Contents) {
                     for (const obj of page.Contents) {
@@ -72,16 +72,18 @@ class ElectronPrivateS3AutoUpdater extends EventEmitter {
                 throw caught;
             }
         }
-        objectList.forEach((element) => {
-            this.downloadFile(element);
-        });
+        for (const element of objectList) {
+            await this.downloadFile(element);
+        }
     }
     initElectronAutoUpdater() {
         electronAutoUpdater.setFeedURL({ url: this.tempPath });
         electronAutoUpdater.off("error", (error) => this.emit("error", error));
         electronAutoUpdater.off("before-quit-for-update", () => this.emit("before-quit-for-update"));
+        electronAutoUpdater.off("update-downloaded", () => this.emit("update-downloaded"));
         electronAutoUpdater.on("error", (error) => this.emit("error", error));
         electronAutoUpdater.on("before-quit-for-update", () => this.emit("before-quit-for-update"));
+        electronAutoUpdater.on("update-downloaded", () => this.emit("update-downloaded"));
     }
     electronCheckForUpdates() {
         electronAutoUpdater.checkForUpdates();
@@ -108,9 +110,9 @@ class ElectronPrivateS3AutoUpdater extends EventEmitter {
                     for (const obj of page.Contents) {
                         if (obj.Key) {
                             const splits = obj.Key.split("/");
-                            const semver = splits[splits.length - 1];
+                            const semver = splits[1];
                             if (semver) {
-                                objectList[semver] = obj.Key;
+                                objectList[semver] = splits.slice(0, 2).join("/");
                             }
                         }
                     }
@@ -150,7 +152,6 @@ class ElectronPrivateS3AutoUpdater extends EventEmitter {
         }
         this.initElectronAutoUpdater();
         this.electronCheckForUpdates();
-        this.emit("update-downloaded");
         this.isChecking = false;
     }
     /**
