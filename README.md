@@ -19,6 +19,9 @@ const updater = autoUpdater("us-east-1", "my-private-bucket", "app-name-prefix/"
 updater.checkForUpdates();
 
 // Quit and install
+
+// Update this to use the event
+
 updater.quitAndInstall();
 ```
 

@@ -200,6 +200,6 @@ class ElectronPrivateS3AutoUpdater extends EventEmitter {
  * @param prefix The prefix for the updates, optional. Usually this is your app name, but it should be the same value set on the s3 publisher config for electron-forge. This value should end in `/`.
  * @param credentials The credentials for accessing the bucket, optional. If no credentials are provded, the default credential chain will be used. It is strongly recommended to use temporary credentials.
  */
-export default function autoUpdater(region: string, bucket: string, prefix?: string, credentials?: AwsCredentialIdentity | AwsCredentialIdentityProvider) {
+export function autoUpdater(region: string, bucket: string, prefix?: string, credentials?: AwsCredentialIdentity | AwsCredentialIdentityProvider) {
     return new ElectronPrivateS3AutoUpdater(region, bucket, prefix, credentials);
 }
