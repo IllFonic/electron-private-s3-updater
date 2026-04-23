@@ -104,7 +104,7 @@ class ElectronPrivateS3AutoUpdater extends EventEmitter {
         this.emit("checking-for-update");
         const objectList = {};
         try {
-            const paginator = paginateListObjectsV2({ client: this.s3Client, pageSize: 100 }, { Bucket: this.bucket, Prefix: this.prefix });
+            const paginator = paginateListObjectsV2({ client: this.s3Client }, { Bucket: this.bucket, Prefix: this.prefix });
             for await (const page of paginator) {
                 if (page.Contents) {
                     for (const obj of page.Contents) {
