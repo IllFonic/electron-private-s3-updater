@@ -77,13 +77,22 @@ class ElectronPrivateS3AutoUpdater extends EventEmitter {
         }
     }
     initElectronAutoUpdater() {
+        const onInternalError = (error) => {
+            this.emit("error", error);
+        };
+        const onBeforeQuitForUpdate = () => {
+            this.emit("before-quit-for-update");
+        };
+        const onUpdateDownloaded = (...args) => {
+            this.emit("update-downloaded", ...args);
+        };
         electronAutoUpdater.setFeedURL({ url: this.tempPath });
-        electronAutoUpdater.off("error", (error) => this.emit("error", error));
-        electronAutoUpdater.off("before-quit-for-update", () => this.emit("before-quit-for-update"));
-        electronAutoUpdater.off("update-downloaded", () => this.emit("update-downloaded"));
-        electronAutoUpdater.on("error", (error) => this.emit("error", error));
-        electronAutoUpdater.on("before-quit-for-update", () => this.emit("before-quit-for-update"));
-        electronAutoUpdater.on("update-downloaded", () => this.emit("update-downloaded"));
+        electronAutoUpdater.off("error", onInternalError);
+        electronAutoUpdater.off("before-quit-for-update", onBeforeQuitForUpdate);
+        electronAutoUpdater.off("update-downloaded", onUpdateDownloaded);
+        electronAutoUpdater.on("error", onInternalError);
+        electronAutoUpdater.on("before-quit-for-update", onBeforeQuitForUpdate);
+        electronAutoUpdater.on("update-downloaded", onUpdateDownloaded);
     }
     electronCheckForUpdates() {
         electronAutoUpdater.checkForUpdates();
