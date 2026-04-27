@@ -166,21 +166,6 @@ class ElectronPrivateS3AutoUpdater extends EventEmitter {
 /**
  * Create a wrapped electron auto updater that uses a private s3 bucket.
  *
- * The s3 bucket is expected to be formatted in the following way:
- * `optionalprefix/semver/platform/arch/files`
- *
- * For example:
- * `testapp/3.2.5/win32/x64/RELEASES`
- *
- * Note that the v in the semver is optional, it is compatible with or without it.
- *
- * You can insert the semver into the s3 path when using electron forge by using the `keyResolver` function. The previous example's `keyResolver` function would be as follows:
- * ```
- * (filename: string, platform: string, arch: string) => {
- *      return `testapp/${process.env.npm_package_version}/${platform}/${arch}/${filename}`;
- * }
- * ```
- *
  * @param region The region to use.
  * @param bucket The bucket the updates are stored in.
  * @param prefix The prefix for the updates, optional. Usually this is your app name, but it should be the same value set on the s3 publisher config for electron-forge. This value should end in `/`.
