@@ -6,11 +6,13 @@ declare class ElectronPrivateS3AutoUpdater extends EventEmitter {
     private bucket;
     private prefix;
     private isChecking;
+    private expectError;
     constructor(region: string, bucket: string, prefix?: string, credentials?: AwsCredentialIdentity | AwsCredentialIdentityProvider);
     private initTempPath;
+    private parseRelease;
     private initS3Client;
     private downloadFile;
-    private downloadUpdate;
+    private downloadAndParseReleaseFile;
     private initElectronAutoUpdater;
     private electronCheckForUpdates;
     private emitError;

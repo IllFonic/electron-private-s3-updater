@@ -1,16 +1,16 @@
-import { GetObjectCommand, paginateListObjectsV2, S3Client, S3ServiceException } from "@aws-sdk/client-s3";
+import { GetObjectCommand, S3Client, S3ServiceException } from "@aws-sdk/client-s3";
 import { app, autoUpdater as electronAutoUpdater } from "electron";
 import EventEmitter from "events";
 import fs from "fs";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "path";
-import { gte as semverGte, sort as semverSort } from "semver";
 class ElectronPrivateS3AutoUpdater extends EventEmitter {
     tempPath = path.join(app.getPath("temp"), "privates3autoupdater");
     s3Client;
     bucket;
     prefix;
     isChecking = false;
+    expectError = false;
     constructor(region, bucket, prefix, credentials) {
         super();
         this.initTempPath();
@@ -23,6 +23,11 @@ class ElectronPrivateS3AutoUpdater extends EventEmitter {
             fs.rmSync(this.tempPath, { recursive: true, force: true });
         }
         fs.mkdirSync(this.tempPath);
+    }
+    async parseRelease(releaseFilePath) {
+        const releasesFile = await readFile(releaseFilePath, { encoding: "utf8" });
+        const releasesSplits = releasesFile.split(" ");
+        return releasesSplits[1] ?? "";
     }
     initS3Client(region, credentials) {
         this.s3Client = new S3Client({ region: region, credentials: credentials });
@@ -49,36 +54,20 @@ class ElectronPrivateS3AutoUpdater extends EventEmitter {
             }
         }
     }
-    async downloadUpdate(key) {
-        const fullPath = path.join(key, process.platform, process.arch).replaceAll(path.sep, "/");
-        const objectList = [];
-        try {
-            const paginator = paginateListObjectsV2({ client: this.s3Client, pageSize: 100 }, { Bucket: this.bucket, Prefix: fullPath });
-            for await (const page of paginator) {
-                if (page.Contents) {
-                    for (const obj of page.Contents) {
-                        if (obj.Key) {
-                            objectList.push(obj.Key);
-                        }
-                    }
-                }
-            }
-        }
-        catch (caught) {
-            if (caught instanceof S3ServiceException) {
-                throw new Error(`Error from S3 while listing objects in bucket ${this.bucket} ${caught.name}: ${caught.message}`);
-            }
-            else {
-                throw caught;
-            }
-        }
-        for (const element of objectList) {
-            await this.downloadFile(element);
-        }
+    async downloadAndParseReleaseFile(prefix) {
+        // Only supports squirrel.windows. To support other targets, this must download the correct releases file.
+        // Mac can probably be supported by downloading the RELEASES.json file and comparing the remote version there to the local version.
+        await this.downloadFile(path.join(prefix, "RELEASES").replaceAll(path.sep, "/"));
+        return this.parseRelease(path.join(this.tempPath, "RELEASES"));
     }
     initElectronAutoUpdater() {
         const onInternalError = (error) => {
-            this.emit("error", error);
+            if (this.expectError) {
+                this.expectError = false;
+            }
+            else {
+                this.emit("error", error);
+            }
         };
         const onBeforeQuitForUpdate = () => {
             this.emit("before-quit-for-update");
@@ -111,57 +100,37 @@ class ElectronPrivateS3AutoUpdater extends EventEmitter {
             return;
         }
         this.emit("checking-for-update");
-        const objectList = {};
-        try {
-            const paginator = paginateListObjectsV2({ client: this.s3Client }, { Bucket: this.bucket, Prefix: this.prefix });
-            for await (const page of paginator) {
-                if (page.Contents) {
-                    for (const obj of page.Contents) {
-                        if (obj.Key) {
-                            const splits = obj.Key.split("/");
-                            const semver = splits[1];
-                            if (semver) {
-                                objectList[semver] = splits.slice(0, 2).join("/");
-                            }
-                        }
-                    }
-                }
-            }
+        const subPath = path.join(process.platform, process.arch).replaceAll(path.sep, "/");
+        let fullPath = subPath;
+        if (this.prefix && this.prefix.length > 0) {
+            fullPath = path.join(this.prefix, subPath).replaceAll(path.sep, "/");
         }
-        catch (caught) {
-            if (caught instanceof S3ServiceException) {
-                this.emitError(new Error(`Error from S3 while listing objects in bucket ${this.bucket} ${caught.name}: ${caught.message}`));
-            }
-            else {
-                this.emitError(caught);
-                throw caught;
-            }
-        }
-        // S3 probably failed.
-        if (Object.keys(objectList).length === 0) {
-            this.emitError(new Error("S3 resulted in no object list"));
-            return;
-        }
-        const sorted = semverSort(Object.keys(objectList));
-        const latest = sorted[sorted.length - 1];
-        // Latest version, no updating needed
-        if (semverGte(app.getVersion(), latest)) {
-            this.isChecking = false;
-            this.emit("update-not-available");
-            return;
-        }
-        this.emit("update-available");
         this.initTempPath();
-        try {
-            await this.downloadUpdate(objectList[latest]);
-        }
-        catch (caught) {
-            this.emitError(caught);
-            return;
-        }
+        const releaseToDownload = await this.downloadAndParseReleaseFile(fullPath);
+        let onUpdate = async () => { };
+        const onNoUpdate = () => {
+            this.emit("update-not-available");
+            electronAutoUpdater.off("update-available", onUpdate);
+            this.isChecking = false;
+        };
+        onUpdate = async () => {
+            this.emit("update-available");
+            electronAutoUpdater.off("update-not-available", onNoUpdate);
+            try {
+                await this.downloadFile(path.join(fullPath, releaseToDownload).replaceAll(path.sep, "/"));
+            }
+            catch (caught) {
+                this.emitError(caught);
+                return;
+            }
+            this.electronCheckForUpdates();
+            this.isChecking = false;
+        };
         this.initElectronAutoUpdater();
+        electronAutoUpdater.once("update-available", onUpdate);
+        electronAutoUpdater.once("update-not-available", onNoUpdate);
+        this.expectError = true;
         this.electronCheckForUpdates();
-        this.isChecking = false;
     }
     /**
      * Restarts the app and applies the update. This should only be called after the `update-downloaded` event is emitted.
