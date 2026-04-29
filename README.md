@@ -6,8 +6,16 @@ Only squirrel.windows is currently supported. Contributions to add support for o
 
 ## Usage
 
+Using your package manager of choice:
+
+```
+pnpm add @illfonic/electron-private-s3-updater
+```
+
+### Implementation
+
 ```typescript
-import { autoUpdater } from "electron-private-s3-updater";
+import { autoUpdater } from "@illfonic/electron-private-s3-updater";
 
 // Get temporary credentials using your authentication system.
 const temporaryCredentials: { accessKeyId: string; secretAccessKey: string; sessionToken: string } = getTemporaryCredentials();
